@@ -1,15 +1,28 @@
 import torch
 
-default_params = {}
+from default_params import default_params
 
 class MLP_AE(torch.nn.Module):
 	
-	def __init__(self, params=default_params):
+	def __init__(self, params):
+
+		for key, value in default_params.items():
+			if key not in params:
+				params[key] = value
 
 		self.num_original_states = params['num_original_states']
 		self.num_lifted_states = params['num_lifted_states']
 		self.num_inputs = params['num_inputs']
 		
+		assert self.num_original_states != None, \
+			f"num_original_states: Number of original states needs to be specified"
+		
+		assert self.num_lifted_states != None, \
+			f"num_lifted_states: Number of lifted states needs to be specified"
+
+		assert self.num_inputs != None, \
+			f"num_inputs: Number of inputs needs to be specified"
+
 		assert self.num_lifted_states > self.num_original_states, \
 			f"Number of lifted states must be greater than the number of original states"
 
@@ -18,7 +31,6 @@ class MLP_AE(torch.nn.Module):
 		self.b_block_layers = params['b_block_layers']
 		self.decoder_trainable = params['decoder_trainable']
 		self.decoder_layers = params['decoder_layers']
-
 
 		super().__init__()
 		
@@ -29,7 +41,9 @@ class MLP_AE(torch.nn.Module):
 										torch.nn.Tanh()]								
 		for i in range(len(self.encoder_layers) - 1):
 			encoder_layers.extend([
-				torch.nn.Linear(self.encoder_layers[i], self.encoder_layers[i + 1], bias=False),
+				torch.nn.Linear(self.encoder_layers[i], 
+								self.encoder_layers[i + 1], 
+								bias=False),
 				torch.nn.Tanh()
 			])
 		encoder_layers.extend([
@@ -47,7 +61,9 @@ class MLP_AE(torch.nn.Module):
 										bias=False)]								
 		for i in range(len(self.k_block_layers) - 1):
 			k_block_layers.extend([
-				torch.nn.Linear(self.k_block_layers[i], self.k_block_layers[i + 1], bias=False)
+				torch.nn.Linear(self.k_block_layers[i], 
+								self.k_block_layers[i + 1], 
+								bias=False)
 			])
 		k_block_layers.extend([
 			torch.nn.Linear(self.k_block_layers[-1], 
@@ -63,7 +79,9 @@ class MLP_AE(torch.nn.Module):
 										bias=False)]								
 		for i in range(len(self.b_block_layers) - 1):
 			b_block_layers.extend([
-				torch.nn.Linear(self.b_block_layers[i], self.b_block_layers[i + 1], bias=False)
+				torch.nn.Linear(self.b_block_layers[i], 
+								self.b_block_layers[i + 1], 
+								bias=False)
 			])
 		b_block_layers.extend([
 			torch.nn.Linear(self.b_block_layers[-1], 
@@ -80,7 +98,9 @@ class MLP_AE(torch.nn.Module):
 											bias=False)]								
 			for i in range(len(self.decoder_layers) - 1):
 				decoder_layers.extend([
-					torch.nn.Linear(self.decoder_layers[i], self.decoder_layers[i + 1], bias=False)
+					torch.nn.Linear(self.decoder_layers[i], 
+									self.decoder_layers[i + 1], 
+									bias=False)
 				])
 			decoder_layers.extend([
 				torch.nn.Linear(self.decoder_layers[-1], 
