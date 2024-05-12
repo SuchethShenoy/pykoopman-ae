@@ -1,1 +1,1 @@
-from .autoencoder import MLP_AE
+from .autoencoder import *
