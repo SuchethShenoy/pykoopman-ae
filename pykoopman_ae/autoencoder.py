@@ -483,7 +483,7 @@ class TCN_AE(torch.nn.Module):
 			num_epochs=10,
 			batch_size=256):
 		"""
-		Trains the MLP_AE model.
+		Trains the TCN_AE model.
 
 		Parameters:
 			trajectory (torch.Tensor): The input trajectories 
@@ -772,6 +772,166 @@ class LSTM_AE(torch.nn.Module):
 		
 		return decoded
 
+	def train(self, 
+			trajectory, 
+			input,
+			loss_function,
+			optimizer,
+			dynamic_loss_window=10,
+			num_epochs=10,
+			batch_size=256):
+		"""
+		Trains the LSTM_AE model.
+
+		Parameters:
+			trajectory (torch.Tensor): The input trajectories 
+				with shape (num_trajectories, num_features, length_trajectory).
+			input (torch.Tensor): The control inputs corresponding to the trajectories 
+				with shape (num_trajectories, num_inputs, length_trajectory).
+			loss_function (callable): The loss function to use for training.
+			optimizer (torch.optim.Optimizer): The optimizer to use for training.
+			dynamic_loss_window (int): The window size for calculating the dynamic loss.
+			num_epochs (int): The number of epochs to train the model.
+			batch_size (int): The size of the batches for training.
+
+		Returns:
+			torch.Tensor: A tensor containing the training losses for each epoch.
+		"""	
+
+		X, Y, U = get_temporal_dataset(trajectory=trajectory,
+										input=input,
+										time_window=self.time_window)
+		device = next(self.parameters()).device
+		X = X.to(device)
+		Y = Y.to(device)
+		U = U.to(device)
+
+		loss_epoch_mean = []
+
+		for epoch in range(num_epochs):
+
+			for i in tqdm(range(X.shape[0])):
+				X_input = X[i]
+				Y_input = Y[i]
+				U_input = U[i]
+				
+				losses = []
+				for k in range(0, X_input.shape[0]-dynamic_loss_window, batch_size):
+					
+					X_batch = X_input[k:k+batch_size, :, :]
+					Y_batch = Y_input[k:k+batch_size, :]
+					U_batch = U_input[k:k+batch_size, :]
+					
+					X_batch_plus_m = X_input[k+dynamic_loss_window:k+batch_size]
+
+					lstm_k = self.lstm(X_batch)[0][:,-1,:]
+					lstm_k_plus_m = self.lstm(X_batch_plus_m)[0][:,-1,:]
+					encoded_k = self.encoder(lstm_k)
+					encoded_k_plus_m = self.encoder(lstm_k_plus_m)
+
+					encoded_k = torch.concat([X_batch[:,-1,:], encoded_k], axis=1)
+					encoded_k_plus_m = torch.concat([X_batch_plus_m[:,-1,:], encoded_k_plus_m], axis=1)
+
+					if self.decoder_trainable:
+						decoded_k = self.decoder(encoded_k)
+					else:
+						decoded_k = torch.matmul(self.c_block, encoded_k.T).T
+					
+					inp_k = self.b_block(U_batch)
+
+					Y_pred = self(X_batch, U_batch)
+					Y_batch = Y_input[k:k+batch_size]
+
+					for k in range(dynamic_loss_window-1):
+						time_shifted_m_steps = encoded_k[:-k-1]
+						u_input_m_steps = inp_k[:-k-1]
+						for l in range(k+1):
+							time_shifted_m_steps = self.k_block(time_shifted_m_steps) + u_input_m_steps
+						encoded_m_steps = self.encoder(lstm_k[k+1:])
+						encoded_m_steps = torch.concat([X_batch[k+1:,-1,:], encoded_m_steps], axis=1)
+						if k==0:
+							loss_dynamics = loss_function(time_shifted_m_steps, encoded_m_steps)
+						else:
+							loss_dynamics += loss_function(time_shifted_m_steps, encoded_m_steps)
+					loss_dynamics = loss_dynamics/(dynamic_loss_window-1)
+
+
+					loss_reconstruction = loss_function(decoded_k, X_batch[:,-1,:])
+					loss_prediction = loss_function(Y_pred, Y_batch)
+					loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+
+					optimizer.zero_grad()
+					loss.backward()
+					optimizer.step()
+					losses.append(loss.item())
+					
+			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
+			loss_epoch_mean.append(mean_epoch_loss)
+		
+			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
+
+		return torch.tensor(loss_epoch_mean)
+
+	
+	def get_koopman_system(self):
+		"""
+		Extracts the lifted system matrices K, B, and C from the trained LSTM_AE model.
+
+		The lifted system matrices represent the Koopman dynamics (K), 
+		input matrix (B), and output matrix (C) of the lifted Koopman system model.
+		Additionally, it provides a function to compute the lifted states from the original states.
+
+		Returns:
+			tuple: A tuple containing the following elements:
+				- K (torch.Tensor): The Koopman dynamics matrix 
+					with shape (num_lifted_states, num_lifted_states).
+				- B (torch.Tensor): The input matrix
+					with shape (num_lifted_states, num_inputs).
+				- C (torch.Tensor): The output matrix
+					with shape (num_original_states, num_lifted_states).
+				- enc (function): A function that computes the lifted states from the original states.
+					The function takes a tensor `x` with shape 
+					(batch_size, time_window, num_original_states) and returns 
+					a tensor with shape (batch_size, num_lifted_states).
+		"""
+
+		# Get K matrix (Koopman Dynamics)
+		K = self.k_block[len(self.k_block)-1].weight.cpu().detach()
+		for i in range(len(self.k_block)-1, 0, -1):
+			K = torch.matmul(K, self.k_block[i-1].weight.cpu().detach())
+
+		# Get B matrix (Input Matrix)
+		B = self.b_block[len(self.b_block)-1].weight.cpu().detach()
+		for i in range(len(self.b_block)-1, 0, -1):
+			B = torch.matmul(B, self.b_block[i-1].weight.cpu().detach())
+
+		# Get C matrix (Output Matrix)
+		if self.decoder_trainable:
+			C = self.decoder[len(self.decoder)-1].weight.cpu().detach()
+			for i in range(len(self.decoder)-1, 0, -1):
+				C = torch.matmul(C, self.decoder[i-1].weight.cpu().detach())
+		else:
+			C = self.c_block.cpu()
+
+		# Get Encoder as a function (Lifting Function)
+		def enc(x):
+			"""
+			Computes the lifted states from the original states.
+
+			Args:
+				x (torch.Tensor): The input tensor with shape (batch_size, time_window, num_original_states).
+
+			Returns:
+				torch.Tensor: The lifted states with shape (batch_size, num_lifted_states).
+			"""
+			lstm_output, _status = self.lstm(x)
+			lstm_output = lstm_output[:,-1,:]
+			encoded = self.encoder(lstm_output)
+			lifted_states = torch.concat([x[:,-1,:], encoded], axis=1)
+			return lifted_states
+
+		return K, B, C, enc
+
 
 class GRU_AE(torch.nn.Module):
 
@@ -907,3 +1067,164 @@ class GRU_AE(torch.nn.Module):
 			decoded = torch.matmul(self.c_block, time_shifted.T).T
 		
 		return decoded
+
+	
+	def train(self, 
+			trajectory, 
+			input,
+			loss_function,
+			optimizer,
+			dynamic_loss_window=10,
+			num_epochs=10,
+			batch_size=256):
+		"""
+		Trains the GRU_AE model.
+
+		Parameters:
+			trajectory (torch.Tensor): The input trajectories 
+				with shape (num_trajectories, num_features, length_trajectory).
+			input (torch.Tensor): The control inputs corresponding to the trajectories 
+				with shape (num_trajectories, num_inputs, length_trajectory).
+			loss_function (callable): The loss function to use for training.
+			optimizer (torch.optim.Optimizer): The optimizer to use for training.
+			dynamic_loss_window (int): The window size for calculating the dynamic loss.
+			num_epochs (int): The number of epochs to train the model.
+			batch_size (int): The size of the batches for training.
+
+		Returns:
+			torch.Tensor: A tensor containing the training losses for each epoch.
+		"""	
+
+		X, Y, U = get_temporal_dataset(trajectory=trajectory,
+										input=input,
+										time_window=self.time_window)
+		device = next(self.parameters()).device
+		X = X.to(device)
+		Y = Y.to(device)
+		U = U.to(device)
+
+		loss_epoch_mean = []
+
+		for epoch in range(num_epochs):
+
+			for i in tqdm(range(X.shape[0])):
+				X_input = X[i]
+				Y_input = Y[i]
+				U_input = U[i]
+				
+				losses = []
+				for k in range(0, X_input.shape[0]-dynamic_loss_window, batch_size):
+					
+					X_batch = X_input[k:k+batch_size, :, :]
+					Y_batch = Y_input[k:k+batch_size, :]
+					U_batch = U_input[k:k+batch_size, :]
+					
+					X_batch_plus_m = X_input[k+dynamic_loss_window:k+batch_size]
+
+					gru_k = self.gru(X_batch)[0][:,-1,:]
+					gru_k_plus_m = self.gru(X_batch_plus_m)[0][:,-1,:]
+					encoded_k = self.encoder(gru_k)
+					encoded_k_plus_m = self.encoder(gru_k_plus_m)
+
+					encoded_k = torch.concat([X_batch[:,-1,:], encoded_k], axis=1)
+					encoded_k_plus_m = torch.concat([X_batch_plus_m[:,-1,:], encoded_k_plus_m], axis=1)
+
+					if self.decoder_trainable:
+						decoded_k = self.decoder(encoded_k)
+					else:
+						decoded_k = torch.matmul(self.c_block, encoded_k.T).T
+					
+					inp_k = self.b_block(U_batch)
+
+					Y_pred = self(X_batch, U_batch)
+					Y_batch = Y_input[k:k+batch_size]
+
+					for k in range(dynamic_loss_window-1):
+						time_shifted_m_steps = encoded_k[:-k-1]
+						u_input_m_steps = inp_k[:-k-1]
+						for l in range(k+1):
+							time_shifted_m_steps = self.k_block(time_shifted_m_steps) + u_input_m_steps
+						encoded_m_steps = self.encoder(gru_k[k+1:])
+						encoded_m_steps = torch.concat([X_batch[k+1:,-1,:], encoded_m_steps], axis=1)
+						if k==0:
+							loss_dynamics = loss_function(time_shifted_m_steps, encoded_m_steps)
+						else:
+							loss_dynamics += loss_function(time_shifted_m_steps, encoded_m_steps)
+					loss_dynamics = loss_dynamics/(dynamic_loss_window-1)
+
+
+					loss_reconstruction = loss_function(decoded_k, X_batch[:,-1,:])
+					loss_prediction = loss_function(Y_pred, Y_batch)
+					loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+
+					optimizer.zero_grad()
+					loss.backward()
+					optimizer.step()
+					losses.append(loss.item())
+					
+			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
+			loss_epoch_mean.append(mean_epoch_loss)
+		
+			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
+
+		return torch.tensor(loss_epoch_mean)
+
+	
+	def get_koopman_system(self):
+		"""
+		Extracts the lifted system matrices K, B, and C from the trained GRU_AE model.
+
+		The lifted system matrices represent the Koopman dynamics (K), 
+		input matrix (B), and output matrix (C) of the lifted Koopman system model.
+		Additionally, it provides a function to compute the lifted states from the original states.
+
+		Returns:
+			tuple: A tuple containing the following elements:
+				- K (torch.Tensor): The Koopman dynamics matrix 
+					with shape (num_lifted_states, num_lifted_states).
+				- B (torch.Tensor): The input matrix
+					with shape (num_lifted_states, num_inputs).
+				- C (torch.Tensor): The output matrix
+					with shape (num_original_states, num_lifted_states).
+				- enc (function): A function that computes the lifted states from the original states.
+					The function takes a tensor `x` with shape 
+					(batch_size, time_window, num_original_states) and returns 
+					a tensor with shape (batch_size, num_lifted_states).
+		"""
+
+		# Get K matrix (Koopman Dynamics)
+		K = self.k_block[len(self.k_block)-1].weight.cpu().detach()
+		for i in range(len(self.k_block)-1, 0, -1):
+			K = torch.matmul(K, self.k_block[i-1].weight.cpu().detach())
+
+		# Get B matrix (Input Matrix)
+		B = self.b_block[len(self.b_block)-1].weight.cpu().detach()
+		for i in range(len(self.b_block)-1, 0, -1):
+			B = torch.matmul(B, self.b_block[i-1].weight.cpu().detach())
+
+		# Get C matrix (Output Matrix)
+		if self.decoder_trainable:
+			C = self.decoder[len(self.decoder)-1].weight.cpu().detach()
+			for i in range(len(self.decoder)-1, 0, -1):
+				C = torch.matmul(C, self.decoder[i-1].weight.cpu().detach())
+		else:
+			C = self.c_block.cpu()
+
+		# Get Encoder as a function (Lifting Function)
+		def enc(x):
+			"""
+			Computes the lifted states from the original states.
+
+			Args:
+				x (torch.Tensor): The input tensor with shape (batch_size, time_window, num_original_states).
+
+			Returns:
+				torch.Tensor: The lifted states with shape (batch_size, num_lifted_states).
+			"""
+			gru_output, _status = self.gru(x)
+			gru_output = gru_output[:,-1,:]
+			encoded = self.encoder(gru_output)
+			lifted_states = torch.concat([x[:,-1,:], encoded], axis=1)
+			return lifted_states
+
+		return K, B, C, enc
