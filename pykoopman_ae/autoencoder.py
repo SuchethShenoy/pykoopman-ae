@@ -5,9 +5,24 @@ from pykoopman_ae.default_params import *
 from pykoopman_ae.params_test import params_test
 
 class MLP_AE(torch.nn.Module):
+	"""
+    MLP_AE is a multi-layer perceptron based Koopman autoencoder model.
+    It includes encoder, k_block, b_block, and an optional trainable decoder.
+
+    Parameters:
+        params (dict): A dictionary containing model parameters.
+    """
 	
 	def __init__(self, params):
+		"""
+        Initializes the MLP_AE model with the given parameters 
+			or default parameters if not provided.
 
+        Parameters:
+            params (dict): A dictionary containing the parameters for the model.
+        """
+
+		# Use default parameters if not provided in params
 		for key, value in default_params_mlp.items():
 			if key not in params:
 				params[key] = value
@@ -24,6 +39,7 @@ class MLP_AE(torch.nn.Module):
 		self.decoder_trainable = params['decoder_trainable']
 		self.decoder_layers = params['decoder_layers']
 
+		# Perform a test on parameters
 		params_test(self)
 
 		super().__init__()
@@ -112,6 +128,19 @@ class MLP_AE(torch.nn.Module):
 
 
 	def forward(self, x, u):
+		"""
+        Defines the forward pass of the MLP_AE model.
+
+        Parameters:
+            x (torch.Tensor): The input state tensor 
+				with shape (batch_size, num_original_states).
+            u (torch.Tensor): The control input tensor 
+				with shape (batch_size, num_inputs).
+
+        Returns:
+            torch.Tensor: The decoded output state tensor 
+				with shape (batch_size, num_original_states).
+        """
 		
 		encoded = self.encoder(x)
 		encoded = torch.concat([x, encoded], axis=1)
@@ -134,8 +163,25 @@ class MLP_AE(torch.nn.Module):
 			dynamic_loss_window=10,
 			num_epochs=10,
 			batch_size=256):
+		"""
+        Trains the MLP_AE model.
 
-		losses = []
+        Parameters:
+            trajectory (torch.Tensor): The input trajectories 
+				with shape (num_trajectories, num_features, length_trajectory).
+            input (torch.Tensor): The control inputs corresponding to the trajectories 
+				with shape (num_trajectories, num_inputs, length_trajectory).
+            loss_function (callable): The loss function to use for training.
+            optimizer (torch.optim.Optimizer): The optimizer to use for training.
+            dynamic_loss_window (int): The window size for calculating the dynamic loss.
+            num_epochs (int): The number of epochs to train the model.
+            batch_size (int): The size of the batches for training.
+
+        Returns:
+            torch.Tensor: A tensor containing the training losses for each epoch.
+        """
+
+		loss_epoch_mean = []
 		for epoch in range(num_epochs):
 
 			for i in tqdm(range(trajectory.shape[0])):
@@ -143,7 +189,8 @@ class MLP_AE(torch.nn.Module):
 				X_traj = trajectory[i, :, :-1].T
 				Y_traj = trajectory[i, :, 1:].T
 				U_traj = input[i, :, :-1].T
-
+				
+				losses = []
 				for j in range(0, len(X_traj)-dynamic_loss_window, batch_size):
 
 					X_batch = X_traj[j:j+batch_size]
@@ -182,10 +229,51 @@ class MLP_AE(torch.nn.Module):
 					loss.backward()
 					optimizer.step()
 					losses.append(loss.item())
+			
+			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
+			loss_epoch_mean.append(mean_epoch_loss)
 		
-			print(f'Finished epoch {epoch+1}, latest loss {loss}')
+			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
 
-		return torch.tensor(losses)
+		return torch.tensor(loss_epoch_mean)
+
+
+	def get_lifted_system_matrices(self):
+		"""
+		Extracts the lifted system matrices K, B, and C from the trained MLP_AE model.
+
+		The lifted system matrices represent the Koopman dynamics (K), 
+		input matrix (B), and output matrix (C) of the lifted Koopman system model.
+
+		Returns:
+			tuple: A tuple containing the following elements:
+				- K (torch.Tensor): The Koopman dynamics matrix 
+					with shape (num_lifted_states, num_lifted_states).
+				- B (torch.Tensor): The input matrix
+					with shape (num_lifted_states, num_inputs).
+				- C (torch.Tensor): The output matrix
+					with shape (num_original_states, num_lifted_states).
+		"""
+
+		# Get K matrix (Koopman Dynamics)
+		K = self.k_block[len(self.k_block)-1].weight.cpu().detach()
+		for i in range(len(self.k_block)-1, 0, -1):
+			K = torch.matmul(K, self.k_block[i-1].weight.cpu().detach())
+
+		# Get B matrix (Input Matrix)
+		B = self.b_block[len(self.b_block)-1].weight.cpu().detach()
+		for i in range(len(self.b_block)-1, 0, -1):
+			B = torch.matmul(B, self.b_block[i-1].weight.cpu().detach())
+
+		# Get C matrix (Output Matrix)
+		if self.decoder_trainable:
+			C = self.decoder[len(self.decoder)-1].weight.cpu().detach()
+			for i in range(len(self.decoder)-1, 0, -1):
+				C = torch.matmul(C, self.decoder[i-1].weight.cpu().detach())
+		else:
+			C = self.c_block.cpu()
+
+		return K, B, C
 
 
 class TCN_AE(torch.nn.Module):
