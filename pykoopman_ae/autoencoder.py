@@ -164,9 +164,12 @@ class MLP_AE(torch.nn.Module):
 			input,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -175,7 +178,10 @@ class MLP_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_model()
 
@@ -185,18 +191,23 @@ class MLP_AE(torch.nn.Module):
 			trajectory,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
-							input=None,
 							loss_function=loss_function,
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_eigendynamics()
 
@@ -207,9 +218,11 @@ class MLP_AE(torch.nn.Module):
 		input,
 		loss_function=None,
 		optimizer=None,
-		dynamic_loss_window=10,
-		num_epochs=10,
-		batch_size=256):
+		dynamic_loss_window=None,
+		num_epochs=None,
+		batch_size=None,
+		weight_prediction_loss=None,
+		weight_dynamics_loss=None):
 	
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -218,7 +231,9 @@ class MLP_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_input_matrix()
 
@@ -432,9 +447,12 @@ class TCN_AE(torch.nn.Module):
 			input,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -443,7 +461,10 @@ class TCN_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_model()
 
@@ -453,18 +474,23 @@ class TCN_AE(torch.nn.Module):
 			trajectory,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
-							input=None,
 							loss_function=loss_function,
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_eigendynamics()
 
@@ -475,9 +501,11 @@ class TCN_AE(torch.nn.Module):
 		input,
 		loss_function=None,
 		optimizer=None,
-		dynamic_loss_window=10,
-		num_epochs=10,
-		batch_size=256):
+		dynamic_loss_window=None,
+		num_epochs=None,
+		batch_size=None,
+		weight_prediction_loss=None,
+		weight_dynamics_loss=None):
 	
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -486,7 +514,9 @@ class TCN_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_input_matrix()
 
@@ -659,9 +689,12 @@ class LSTM_AE(torch.nn.Module):
 			input,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -670,7 +703,10 @@ class LSTM_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_model()
 
@@ -680,18 +716,23 @@ class LSTM_AE(torch.nn.Module):
 			trajectory,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
-							input=None,
 							loss_function=loss_function,
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_eigendynamics()
 
@@ -702,9 +743,11 @@ class LSTM_AE(torch.nn.Module):
 		input,
 		loss_function=None,
 		optimizer=None,
-		dynamic_loss_window=10,
-		num_epochs=10,
-		batch_size=256):
+		dynamic_loss_window=None,
+		num_epochs=None,
+		batch_size=None,
+		weight_prediction_loss=None,
+		weight_dynamics_loss=None):
 	
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -713,7 +756,9 @@ class LSTM_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_input_matrix()
 
@@ -887,9 +932,12 @@ class GRU_AE(torch.nn.Module):
 			input,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -898,7 +946,10 @@ class GRU_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_model()
 
@@ -908,18 +959,23 @@ class GRU_AE(torch.nn.Module):
 			trajectory,
 			loss_function=None,
 			optimizer=None,
-			dynamic_loss_window=10,
-			num_epochs=10,
-			batch_size=256):
+			dynamic_loss_window=None,
+			num_epochs=None,
+			batch_size=None,
+			weight_reconstruction_loss=None,
+			weight_prediction_loss=None,
+			weight_dynamics_loss=None):
 		
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
-							input=None,
 							loss_function=loss_function,
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_reconstruction_loss=weight_reconstruction_loss,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_koopman_eigendynamics()
 
@@ -930,9 +986,11 @@ class GRU_AE(torch.nn.Module):
 		input,
 		loss_function=None,
 		optimizer=None,
-		dynamic_loss_window=10,
-		num_epochs=10,
-		batch_size=256):
+		dynamic_loss_window=None,
+		num_epochs=None,
+		batch_size=None,
+		weight_prediction_loss=None,
+		weight_dynamics_loss=None):
 	
 		ModelTrainer = Trainer(model=self,
 							trajectory=trajectory,
@@ -941,7 +999,9 @@ class GRU_AE(torch.nn.Module):
 							optimizer=optimizer,
 							dynamic_loss_window=dynamic_loss_window,
 							num_epochs=num_epochs,
-							batch_size=batch_size)
+							batch_size=batch_size,
+							weight_prediction_loss=weight_prediction_loss,
+							weight_dynamics_loss=weight_dynamics_loss)
 
 		loss = ModelTrainer.learn_input_matrix()
 

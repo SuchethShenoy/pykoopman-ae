@@ -12,9 +12,12 @@ class Trainer():
                 input=None,
                 loss_function=None,
                 optimizer=None,
-                dynamic_loss_window=10,
-                num_epochs=10,
-                batch_size=256):
+                dynamic_loss_window=None,
+                num_epochs=None,
+                batch_size=None,
+                weight_reconstruction_loss=None,
+                weight_prediction_loss=None,
+                weight_dynamics_loss=None):
         
         self.model = model
         self.trajectory = trajectory
@@ -24,6 +27,9 @@ class Trainer():
         self.dynamic_loss_window = dynamic_loss_window
         self.num_epochs = num_epochs
         self.batch_size = batch_size
+        self.weight_reconstruction_loss = weight_reconstruction_loss
+        self.weight_prediction_loss = weight_prediction_loss
+        self.weight_dynamics_loss = weight_dynamics_loss
         self.device = next(self.model.parameters()).device
 
         if self.loss_function == None:
@@ -33,6 +39,24 @@ class Trainer():
             self.optimizer = torch.optim.AdamW(self.model.parameters(), 
                                     lr = 0.0001, weight_decay=1e-6)
         
+        if self.dynamic_loss_window == None:
+            self.dynamic_loss_window = 10
+        
+        if self.num_epochs == None:
+            self.num_epochs = 10
+        
+        if self.batch_size == None:
+            self.batch_size = 256
+
+        if self.weight_reconstruction_loss == None:
+            self.weight_reconstruction_loss = 10
+
+        if self.weight_prediction_loss == None:
+            self.weight_prediction_loss = 1
+        
+        if self.weight_dynamics_loss == None:
+            self.weight_dynamics_loss = 1
+
         
     def learn_koopman_model(self):
         if self.model.model_type == "MLP":
@@ -121,7 +145,7 @@ def train_nontemporal_model_with_control_input(trainer):
                 
                 loss_reconstruction = trainer.loss_function(decoded_k, X_batch)
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+                loss = trainer.weight_reconstruction_loss*loss_reconstruction + trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
                 
                 trainer.optimizer.zero_grad()
                 loss.backward()
@@ -219,7 +243,7 @@ def train_temporal_model_with_control_input(trainer):
                 else:
                     loss_reconstruction = trainer.loss_function(decoded_k, X_batch[:,-1,:])
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+                loss = trainer.weight_reconstruction_loss*loss_reconstruction + trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
 
                 trainer.optimizer.zero_grad()
                 loss.backward()
@@ -275,7 +299,7 @@ def train_nontemporal_model_without_control_input(trainer):
                 loss_dynamics = loss_dynamics/(trainer.dynamic_loss_window-1)
                 loss_reconstruction = trainer.loss_function(decoded_k, X_batch)
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+                loss = trainer.weight_reconstruction_loss*loss_reconstruction + trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
                 
                 trainer.optimizer.zero_grad()
                 loss.backward()
@@ -369,7 +393,7 @@ def train_temporal_model_without_control_input(trainer):
                 else:
                     loss_reconstruction = trainer.loss_function(decoded_k, X_batch[:,-1,:])
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
+                loss = trainer.weight_reconstruction_loss*loss_reconstruction + trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
 
                 trainer.optimizer.zero_grad()
                 loss.backward()
@@ -423,7 +447,7 @@ def train_nontemporal_b_block_with_control_input(trainer):
 
                 loss_dynamics = loss_dynamics/(trainer.dynamic_loss_window-1)
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = loss_prediction + loss_dynamics
+                loss = trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
 
                 trainer.optimizer.zero_grad()
                 loss.backward()
@@ -489,7 +513,7 @@ def train_temporal_b_block_with_control_input(trainer):
 
                 loss_dynamics = loss_dynamics/(trainer.dynamic_loss_window-1)
                 loss_prediction = trainer.loss_function(Y_pred, Y_batch)
-                loss = loss_prediction + loss_dynamics
+                loss = trainer.weight_prediction_loss*loss_prediction + trainer.weight_dynamics_loss*loss_dynamics
 
                 trainer.optimizer.zero_grad()
                 loss.backward()
