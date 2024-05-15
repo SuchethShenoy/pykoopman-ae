@@ -427,106 +427,70 @@ class TCN_AE(torch.nn.Module):
 		return decoded
 
 	
-	def train(self, 
+	def learn_koopman_model(self, 
 			trajectory, 
 			input,
-			loss_function,
-			optimizer,
+			loss_function=None,
+			optimizer=None,
 			dynamic_loss_window=10,
 			num_epochs=10,
 			batch_size=256):
-		"""
-		Trains the TCN_AE model.
-
-		Parameters:
-			trajectory (torch.Tensor): The input trajectories 
-				with shape (num_trajectories, num_features, length_trajectory).
-			input (torch.Tensor): The control inputs corresponding to the trajectories 
-				with shape (num_trajectories, num_inputs, length_trajectory).
-			loss_function (callable): The loss function to use for training.
-			optimizer (torch.optim.Optimizer): The optimizer to use for training.
-			dynamic_loss_window (int): The window size for calculating the dynamic loss.
-			num_epochs (int): The number of epochs to train the model.
-			batch_size (int): The size of the batches for training.
-
-		Returns:
-			torch.Tensor: A tensor containing the training losses for each epoch.
-		"""	
-
-		X, Y, U = get_temporal_dataset(trajectory=trajectory,
-										input=input,
-										time_window=self.time_window)
-		device = next(self.parameters()).device
-		if X.shape[-1] != self.time_window:
-			X = X.transpose(-2,-1)
-		X = X.to(device)
-		Y = Y.to(device)
-		U = U.to(device)
-
-		loss_epoch_mean = []
-
-		for epoch in range(num_epochs):
-
-			for i in tqdm(range(X.shape[0])):
-				X_input = X[i]
-				Y_input = Y[i]
-				U_input = U[i]
-				
-				losses = []
-				for k in range(0, X_input.shape[0]-dynamic_loss_window, batch_size):
-					
-					X_batch = X_input[k:k+batch_size, :, :]
-					Y_batch = Y_input[k:k+batch_size, :]
-					U_batch = U_input[k:k+batch_size, :]
-					
-					X_batch_plus_m = X_input[k+dynamic_loss_window:k+batch_size]
-
-					tcn_k = self.tcn(X_batch)
-					tcn_k_plus_m = self.tcn(X_batch_plus_m)
-					encoded_k = self.encoder(tcn_k)
-					encoded_k_plus_m = self.encoder(tcn_k_plus_m)
-
-					encoded_k = torch.concat([X_batch[:,:,-1], encoded_k], axis=1)
-					encoded_k_plus_m = torch.concat([X_batch_plus_m[:,:,-1], encoded_k_plus_m], axis=1)
-
-					if self.decoder_trainable:
-						decoded_k = self.decoder(encoded_k)
-					else:
-						decoded_k = torch.matmul(self.c_block, encoded_k.T).T
-
-					inp_k = self.b_block(U_batch)
-
-					Y_pred = self(X_batch, U_batch)
-					Y_batch = Y_input[k:k+batch_size]
-
-					for k in range(dynamic_loss_window-1):
-						time_shifted_m_steps = encoded_k[:-k-1]
-						u_input_m_steps = inp_k[:-k-1]
-						for l in range(k+1):
-							time_shifted_m_steps = self.k_block(time_shifted_m_steps) + u_input_m_steps
-						encoded_m_steps = self.encoder(tcn_k[k+1:])
-						encoded_m_steps = torch.concat([X_batch[k+1:, :, -1], encoded_m_steps], axis=1)
-						if k==0:
-							loss_dynamics = loss_function(time_shifted_m_steps, encoded_m_steps)
-						else:
-							loss_dynamics += loss_function(time_shifted_m_steps, encoded_m_steps)
-					loss_dynamics = loss_dynamics/(dynamic_loss_window-1)
-
-					loss_reconstruction = loss_function(decoded_k, X_batch[:,:,-1])
-					loss_prediction = loss_function(Y_pred, Y_batch)
-					loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
-
-					optimizer.zero_grad()
-					loss.backward()
-					optimizer.step()
-					losses.append(loss.item())
-					
-			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
-			loss_epoch_mean.append(mean_epoch_loss)
 		
-			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
 
-		return torch.tensor(loss_epoch_mean)
+		loss = ModelTrainer.learn_koopman_model()
+
+		return loss
+
+	def learn_koopman_eigendynamics(self, 
+			trajectory,
+			loss_function=None,
+			optimizer=None,
+			dynamic_loss_window=10,
+			num_epochs=10,
+			batch_size=256):
+		
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=None,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_koopman_eigendynamics()
+
+		return loss
+
+	def learn_input_matrix(self, 
+		trajectory,
+		input,
+		loss_function=None,
+		optimizer=None,
+		dynamic_loss_window=10,
+		num_epochs=10,
+		batch_size=256):
+	
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_input_matrix()
+
+		return loss
 
 	
 	def get_koopman_system(self):
@@ -690,105 +654,70 @@ class LSTM_AE(torch.nn.Module):
 		
 		return decoded
 
-	def train(self, 
+	def learn_koopman_model(self, 
 			trajectory, 
 			input,
-			loss_function,
-			optimizer,
+			loss_function=None,
+			optimizer=None,
 			dynamic_loss_window=10,
 			num_epochs=10,
 			batch_size=256):
-		"""
-		Trains the LSTM_AE model.
-
-		Parameters:
-			trajectory (torch.Tensor): The input trajectories 
-				with shape (num_trajectories, num_features, length_trajectory).
-			input (torch.Tensor): The control inputs corresponding to the trajectories 
-				with shape (num_trajectories, num_inputs, length_trajectory).
-			loss_function (callable): The loss function to use for training.
-			optimizer (torch.optim.Optimizer): The optimizer to use for training.
-			dynamic_loss_window (int): The window size for calculating the dynamic loss.
-			num_epochs (int): The number of epochs to train the model.
-			batch_size (int): The size of the batches for training.
-
-		Returns:
-			torch.Tensor: A tensor containing the training losses for each epoch.
-		"""	
-
-		X, Y, U = get_temporal_dataset(trajectory=trajectory,
-										input=input,
-										time_window=self.time_window)
-		device = next(self.parameters()).device
-		X = X.to(device)
-		Y = Y.to(device)
-		U = U.to(device)
-
-		loss_epoch_mean = []
-
-		for epoch in range(num_epochs):
-
-			for i in tqdm(range(X.shape[0])):
-				X_input = X[i]
-				Y_input = Y[i]
-				U_input = U[i]
-				
-				losses = []
-				for k in range(0, X_input.shape[0]-dynamic_loss_window, batch_size):
-					
-					X_batch = X_input[k:k+batch_size, :, :]
-					Y_batch = Y_input[k:k+batch_size, :]
-					U_batch = U_input[k:k+batch_size, :]
-					
-					X_batch_plus_m = X_input[k+dynamic_loss_window:k+batch_size]
-
-					lstm_k = self.lstm(X_batch)[0][:,-1,:]
-					lstm_k_plus_m = self.lstm(X_batch_plus_m)[0][:,-1,:]
-					encoded_k = self.encoder(lstm_k)
-					encoded_k_plus_m = self.encoder(lstm_k_plus_m)
-
-					encoded_k = torch.concat([X_batch[:,-1,:], encoded_k], axis=1)
-					encoded_k_plus_m = torch.concat([X_batch_plus_m[:,-1,:], encoded_k_plus_m], axis=1)
-
-					if self.decoder_trainable:
-						decoded_k = self.decoder(encoded_k)
-					else:
-						decoded_k = torch.matmul(self.c_block, encoded_k.T).T
-					
-					inp_k = self.b_block(U_batch)
-
-					Y_pred = self(X_batch, U_batch)
-					Y_batch = Y_input[k:k+batch_size]
-
-					for k in range(dynamic_loss_window-1):
-						time_shifted_m_steps = encoded_k[:-k-1]
-						u_input_m_steps = inp_k[:-k-1]
-						for l in range(k+1):
-							time_shifted_m_steps = self.k_block(time_shifted_m_steps) + u_input_m_steps
-						encoded_m_steps = self.encoder(lstm_k[k+1:])
-						encoded_m_steps = torch.concat([X_batch[k+1:,-1,:], encoded_m_steps], axis=1)
-						if k==0:
-							loss_dynamics = loss_function(time_shifted_m_steps, encoded_m_steps)
-						else:
-							loss_dynamics += loss_function(time_shifted_m_steps, encoded_m_steps)
-					loss_dynamics = loss_dynamics/(dynamic_loss_window-1)
-
-
-					loss_reconstruction = loss_function(decoded_k, X_batch[:,-1,:])
-					loss_prediction = loss_function(Y_pred, Y_batch)
-					loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
-
-					optimizer.zero_grad()
-					loss.backward()
-					optimizer.step()
-					losses.append(loss.item())
-					
-			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
-			loss_epoch_mean.append(mean_epoch_loss)
 		
-			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
 
-		return torch.tensor(loss_epoch_mean)
+		loss = ModelTrainer.learn_koopman_model()
+
+		return loss
+
+	def learn_koopman_eigendynamics(self, 
+			trajectory,
+			loss_function=None,
+			optimizer=None,
+			dynamic_loss_window=10,
+			num_epochs=10,
+			batch_size=256):
+		
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=None,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_koopman_eigendynamics()
+
+		return loss
+
+	def learn_input_matrix(self, 
+		trajectory,
+		input,
+		loss_function=None,
+		optimizer=None,
+		dynamic_loss_window=10,
+		num_epochs=10,
+		batch_size=256):
+	
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_input_matrix()
+
+		return loss
 
 	
 	def get_koopman_system(self):
@@ -953,105 +882,70 @@ class GRU_AE(torch.nn.Module):
 		return decoded
 
 	
-	def train(self, 
+	def learn_koopman_model(self, 
 			trajectory, 
 			input,
-			loss_function,
-			optimizer,
+			loss_function=None,
+			optimizer=None,
 			dynamic_loss_window=10,
 			num_epochs=10,
 			batch_size=256):
-		"""
-		Trains the GRU_AE model.
-
-		Parameters:
-			trajectory (torch.Tensor): The input trajectories 
-				with shape (num_trajectories, num_features, length_trajectory).
-			input (torch.Tensor): The control inputs corresponding to the trajectories 
-				with shape (num_trajectories, num_inputs, length_trajectory).
-			loss_function (callable): The loss function to use for training.
-			optimizer (torch.optim.Optimizer): The optimizer to use for training.
-			dynamic_loss_window (int): The window size for calculating the dynamic loss.
-			num_epochs (int): The number of epochs to train the model.
-			batch_size (int): The size of the batches for training.
-
-		Returns:
-			torch.Tensor: A tensor containing the training losses for each epoch.
-		"""	
-
-		X, Y, U = get_temporal_dataset(trajectory=trajectory,
-										input=input,
-										time_window=self.time_window)
-		device = next(self.parameters()).device
-		X = X.to(device)
-		Y = Y.to(device)
-		U = U.to(device)
-
-		loss_epoch_mean = []
-
-		for epoch in range(num_epochs):
-
-			for i in tqdm(range(X.shape[0])):
-				X_input = X[i]
-				Y_input = Y[i]
-				U_input = U[i]
-				
-				losses = []
-				for k in range(0, X_input.shape[0]-dynamic_loss_window, batch_size):
-					
-					X_batch = X_input[k:k+batch_size, :, :]
-					Y_batch = Y_input[k:k+batch_size, :]
-					U_batch = U_input[k:k+batch_size, :]
-					
-					X_batch_plus_m = X_input[k+dynamic_loss_window:k+batch_size]
-
-					gru_k = self.gru(X_batch)[0][:,-1,:]
-					gru_k_plus_m = self.gru(X_batch_plus_m)[0][:,-1,:]
-					encoded_k = self.encoder(gru_k)
-					encoded_k_plus_m = self.encoder(gru_k_plus_m)
-
-					encoded_k = torch.concat([X_batch[:,-1,:], encoded_k], axis=1)
-					encoded_k_plus_m = torch.concat([X_batch_plus_m[:,-1,:], encoded_k_plus_m], axis=1)
-
-					if self.decoder_trainable:
-						decoded_k = self.decoder(encoded_k)
-					else:
-						decoded_k = torch.matmul(self.c_block, encoded_k.T).T
-					
-					inp_k = self.b_block(U_batch)
-
-					Y_pred = self(X_batch, U_batch)
-					Y_batch = Y_input[k:k+batch_size]
-
-					for k in range(dynamic_loss_window-1):
-						time_shifted_m_steps = encoded_k[:-k-1]
-						u_input_m_steps = inp_k[:-k-1]
-						for l in range(k+1):
-							time_shifted_m_steps = self.k_block(time_shifted_m_steps) + u_input_m_steps
-						encoded_m_steps = self.encoder(gru_k[k+1:])
-						encoded_m_steps = torch.concat([X_batch[k+1:,-1,:], encoded_m_steps], axis=1)
-						if k==0:
-							loss_dynamics = loss_function(time_shifted_m_steps, encoded_m_steps)
-						else:
-							loss_dynamics += loss_function(time_shifted_m_steps, encoded_m_steps)
-					loss_dynamics = loss_dynamics/(dynamic_loss_window-1)
-
-
-					loss_reconstruction = loss_function(decoded_k, X_batch[:,-1,:])
-					loss_prediction = loss_function(Y_pred, Y_batch)
-					loss = 10*loss_reconstruction + loss_prediction + loss_dynamics
-
-					optimizer.zero_grad()
-					loss.backward()
-					optimizer.step()
-					losses.append(loss.item())
-					
-			mean_epoch_loss = torch.mean(torch.tensor(losses)).item()
-			loss_epoch_mean.append(mean_epoch_loss)
 		
-			print(f'Finished epoch {epoch+1}, mean loss for the epoch = {mean_epoch_loss}')
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
 
-		return torch.tensor(loss_epoch_mean)
+		loss = ModelTrainer.learn_koopman_model()
+
+		return loss
+
+	def learn_koopman_eigendynamics(self, 
+			trajectory,
+			loss_function=None,
+			optimizer=None,
+			dynamic_loss_window=10,
+			num_epochs=10,
+			batch_size=256):
+		
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=None,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_koopman_eigendynamics()
+
+		return loss
+
+	def learn_input_matrix(self, 
+		trajectory,
+		input,
+		loss_function=None,
+		optimizer=None,
+		dynamic_loss_window=10,
+		num_epochs=10,
+		batch_size=256):
+	
+		ModelTrainer = Trainer(model=self,
+							trajectory=trajectory,
+							input=input,
+							loss_function=loss_function,
+							optimizer=optimizer,
+							dynamic_loss_window=dynamic_loss_window,
+							num_epochs=num_epochs,
+							batch_size=batch_size)
+
+		loss = ModelTrainer.learn_input_matrix()
+
+		return loss
 
 	
 	def get_koopman_system(self):
@@ -1075,7 +969,6 @@ class GRU_AE(torch.nn.Module):
 					(batch_size, time_window, num_original_states) and returns 
 					a tensor with shape (batch_size, num_lifted_states).
 		"""
-
 		
 		K, B, C, enc = get_koopman_system(self)
 		return K, B, C, enc

@@ -23,6 +23,9 @@ def get_temporal_dataset(trajectory, input, time_window):
                 X[i, j] = traj[j-time_window+1:j+1, :]
                 Y[i, j] = traj[j+1, :]
 
-    U = input.transpose(1,2)[:, :-1, :]
+    if input != None:
+        U = input.transpose(1,2)[:, :-1, :]
+    else:
+        U = None
 
     return X, Y, U
