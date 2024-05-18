@@ -3,7 +3,6 @@ from tqdm import tqdm
 
 from pykoopman_ae.default_params import *
 from pykoopman_ae.params_test import params_test
-from pykoopman_ae.dataset_generator import get_temporal_dataset
 from pykoopman_ae.system_extraction import get_koopman_system
 from pykoopman_ae.training import Trainer
 
