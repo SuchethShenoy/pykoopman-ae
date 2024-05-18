@@ -1,6 +1,26 @@
 import torch
 
 def get_temporal_dataset(trajectory, input, time_window):
+    """
+    Generates temporal datasets for training time-series models by creating sequences of a specified
+    time window length from the input trajectory data. Optionally includes input data if provided.
+
+    Args:
+        trajectory (torch.Tensor): The trajectory data with shape (batch_size, num_features, sequence_length).
+        input (torch.Tensor or None): The input data with shape (batch_size, sequence_length, num_inputs), 
+                                      or None if no input data is provided.
+        time_window (int): The length of the time window for creating sequences.
+
+    Returns:
+        tuple: A tuple containing the following elements:
+            - X (torch.Tensor): The input sequences with shape 
+                                (batch_size, sequence_length-1, time_window, num_features).
+            - Y (torch.Tensor): The target values with shape 
+                                (batch_size, sequence_length-1, num_features).
+            - U (torch.Tensor or None): The input sequences corresponding to the input data, 
+                                        with shape (batch_size, sequence_length-1, num_inputs), 
+                                        or None if no input data is provided.
+    """
 
     X = torch.zeros((trajectory.shape[0], 
 						trajectory.shape[2]-1, 

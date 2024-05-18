@@ -5,7 +5,25 @@ from pykoopman_ae.system_extraction import get_koopman_system
 from pykoopman_ae.dataset_generator import get_temporal_dataset
 
 class Trainer():
+    """
+    A class to train Koopman models using different neural network architectures (MLP, TCN, LSTM, GRU).
 
+    Attributes:
+        model (torch.nn.Module): The neural network model to be trained.
+        trajectory (torch.Tensor): The trajectory data with shape (batch_size, num_features, sequence_length).
+        input (torch.Tensor or None): The input data with shape (batch_size, sequence_length, num_inputs), 
+                                      or None if no input data is provided.
+        loss_function (torch.nn.Module): The loss function to be used. Defaults to MSELoss if None.
+        optimizer (torch.optim.Optimizer): The optimizer to be used. Defaults to AdamW if None.
+        dynamic_loss_window (int): The window size for computing dynamic loss. Defaults to 10 if None.
+        num_epochs (int): The number of epochs for training. Defaults to 10 if None.
+        batch_size (int): The batch size for training. Defaults to 256 if None.
+        weight_reconstruction_loss (float): The weight for the reconstruction loss. Defaults to 10 if None.
+        weight_prediction_loss (float): The weight for the prediction loss. Defaults to 1 if None.
+        weight_dynamics_loss (float): The weight for the dynamics loss. Defaults to 1 if None.
+        device (torch.device): The device (CPU or GPU) on which the model parameters are located.
+    """
+    
     def __init__(self, 
                 model,
                 trajectory,
@@ -18,6 +36,22 @@ class Trainer():
                 weight_reconstruction_loss=None,
                 weight_prediction_loss=None,
                 weight_dynamics_loss=None):
+        """
+        Initializes the Trainer with the given model, data, and training parameters.
+
+        Args:
+            model (torch.nn.Module): The neural network model to be trained.
+            trajectory (torch.Tensor): The trajectory data.
+            input (torch.Tensor or None): The input data, or None if no input data is provided.
+            loss_function (torch.nn.Module, optional): The loss function to be used. Defaults to MSELoss.
+            optimizer (torch.optim.Optimizer, optional): The optimizer to be used. Defaults to AdamW.
+            dynamic_loss_window (int, optional): The window size for computing dynamic loss. Defaults to 10.
+            num_epochs (int, optional): The number of epochs for training. Defaults to 10.
+            batch_size (int, optional): The batch size for training. Defaults to 256.
+            weight_reconstruction_loss (float, optional): The weight for the reconstruction loss. Defaults to 10.
+            weight_prediction_loss (float, optional): The weight for the prediction loss. Defaults to 1.
+            weight_dynamics_loss (float, optional): The weight for the dynamics loss. Defaults to 1.
+        """
         
         self.model = model
         self.trajectory = trajectory
@@ -59,14 +93,26 @@ class Trainer():
 
         
     def learn_koopman_model(self):
+        """
+        Trains the Koopman model with control input.
+
+        Returns:
+            float: The final training loss.
+        """
         if self.model.model_type == "MLP":
             loss = train_nontemporal_model_with_control_input(self)
         else:
             loss = train_temporal_model_with_control_input(self)
         return loss
 
-    
+
     def learn_koopman_eigendynamics(self):
+        """
+        Trains the Koopman model without control input.
+
+        Returns:
+            float: The final training loss.
+        """
         if self.model.model_type == "MLP":
             loss = train_nontemporal_model_without_control_input(self)
         else:
@@ -75,6 +121,12 @@ class Trainer():
 
 
     def learn_input_matrix(self):
+        """
+        Trains the input matrix of the Koopman model.
+
+        Returns:
+            float: The final training loss.
+        """
         if self.model.model_type == "MLP":
             loss = train_nontemporal_b_block_with_control_input(self)
         else:
@@ -85,22 +137,14 @@ class Trainer():
 
 def train_nontemporal_model_with_control_input(trainer):
     """
-        Trains the MLP_AE model.
+    Trains a non-temporal Koopman model with control input using the provided trainer configuration.
 
-        Parameters:
-            trajectory (torch.Tensor): The input trajectories 
-				with shape (num_trajectories, num_features, length_trajectory).
-            input (torch.Tensor): The control inputs corresponding to the trajectories 
-				with shape (num_trajectories, num_inputs, length_trajectory).
-            loss_function (callable): The loss function to use for training.
-            optimizer (torch.optim.Optimizer): The optimizer to use for training.
-            dynamic_loss_window (int): The window size for calculating the dynamic loss.
-            num_epochs (int): The number of epochs to train the model.
-            batch_size (int): The size of the batches for training.
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
 
-        Returns:
-            torch.Tensor: A tensor containing the training losses for each epoch.
-        """
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     loss_epoch_mean = []
 
@@ -160,10 +204,19 @@ def train_nontemporal_model_with_control_input(trainer):
     return torch.tensor(loss_epoch_mean)
 
 def train_temporal_model_with_control_input(trainer):
+    """
+    Trains a temporal Koopman model with control input using the provided trainer configuration.
+
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
+
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     X, Y, U = get_temporal_dataset(trajectory=trainer.trajectory,
-										input=trainer.input,
-										time_window=trainer.model.time_window)
+                                        input=trainer.input,
+                                        time_window=trainer.model.time_window)
     
     if trainer.model.model_type == "TCN":
         if X.shape[-1] != trainer.model.time_window:
@@ -258,6 +311,15 @@ def train_temporal_model_with_control_input(trainer):
     return torch.tensor(loss_epoch_mean)
   
 def train_nontemporal_model_without_control_input(trainer):
+    """
+    Trains a non-temporal Koopman model without control input using the provided trainer configuration.
+
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
+
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     loss_epoch_mean = []
 
@@ -314,10 +376,19 @@ def train_nontemporal_model_without_control_input(trainer):
     return torch.tensor(loss_epoch_mean)
 
 def train_temporal_model_without_control_input(trainer):
+    """
+    Trains a temporal Koopman model without control input using the provided trainer configuration.
+
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
+
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     X, Y, U = get_temporal_dataset(trajectory=trainer.trajectory,
-										input=trainer.input,
-										time_window=trainer.model.time_window)
+                                        input=trainer.input,
+                                        time_window=trainer.model.time_window)
     
     if trainer.model.model_type == "TCN":
         if X.shape[-1] != trainer.model.time_window:
@@ -408,6 +479,15 @@ def train_temporal_model_without_control_input(trainer):
     return torch.tensor(loss_epoch_mean)
 
 def train_nontemporal_b_block_with_control_input(trainer):
+    """
+    Trains the b_block of a non-temporal Koopman model with control input using the provided trainer configuration.
+
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
+
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     K, B, C, enc = get_koopman_system(trainer.model)
     K = K.to(device=trainer.device)
@@ -462,10 +542,19 @@ def train_nontemporal_b_block_with_control_input(trainer):
     return torch.tensor(loss_epoch_mean)
 
 def train_temporal_b_block_with_control_input(trainer):
+    """
+    Trains the b_block of a temporal Koopman model with control input using the provided trainer configuration.
+
+    Args:
+        trainer (Trainer): An instance of the Trainer class containing the model, data, and training parameters.
+
+    Returns:
+        torch.Tensor: A tensor containing the mean loss for each epoch.
+    """
 
     X, Y, U = get_temporal_dataset(trajectory=trainer.trajectory,
-										input=trainer.input,
-										time_window=trainer.model.time_window)
+                                        input=trainer.input,
+                                        time_window=trainer.model.time_window)
     
     if trainer.model.model_type == "TCN":
         if X.shape[-1] != trainer.model.time_window:
