@@ -4,6 +4,7 @@ from pykoopman_ae.system_extraction import get_koopman_system
 
 import torch
 
+
 def save_model_with_params(model, params, path):
     """
     Saves the model's state dictionary and the model parameters to a specified path.
@@ -16,11 +17,15 @@ def save_model_with_params(model, params, path):
     Returns:
         None
     """
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'params': params,
-    }, path)
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "params": params,
+        },
+        path,
+    )
     print("Model and parameters saved successfully at", path)
+
 
 def load_model_with_params(path, model_class):
     """
@@ -37,9 +42,9 @@ def load_model_with_params(path, model_class):
             - params (dict): The parameters dictionary used to initialize the model.
     """
     checkpoint = torch.load(path)
-    params = checkpoint['params']
+    params = checkpoint["params"]
     model = model_class(params)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
     print("Model and parameters loaded successfully from", path)
     return model, params
@@ -57,17 +62,21 @@ def save_koopman_system(model, params, path):
     K, B, C, enc = get_koopman_system(model)
 
     # Save the matrices and encoder state dict
-    torch.save({
-        'K': K,
-        'B': B,
-        'C': C,
-        'encoder_state_dict': model.encoder.state_dict(),
-        'model_params': params,
-        'model_type': model.model_type,
-        'time_window': model.time_window if hasattr(model, 'time_window') else None,
-    }, path)
+    torch.save(
+        {
+            "K": K,
+            "B": B,
+            "C": C,
+            "encoder_state_dict": model.encoder.state_dict(),
+            "model_params": params,
+            "model_type": model.model_type,
+            "time_window": model.time_window if hasattr(model, "time_window") else None,
+        },
+        path,
+    )
 
     print(f"Koopman system saved successfully at {path}")
+
 
 def load_koopman_system(path, model_class):
     """
@@ -76,7 +85,7 @@ def load_koopman_system(path, model_class):
     Args:
         path (str): The file path to load the Koopman system from.
         model_class (class): The class of the model to instantiate.
-        
+
     Returns:
         tuple: A tuple containing the Koopman matrices (K, B, C) and the encoder function (enc).
     """
@@ -84,16 +93,16 @@ def load_koopman_system(path, model_class):
     checkpoint = torch.load(path)
 
     # Extract matrices and parameters
-    K = checkpoint['K']
-    B = checkpoint['B']
-    C = checkpoint['C']
-    model_params = checkpoint['model_params']
-    model_type = checkpoint['model_type']
-    time_window = checkpoint['time_window']
+    K = checkpoint["K"]
+    B = checkpoint["B"]
+    C = checkpoint["C"]
+    model_params = checkpoint["model_params"]
+    model_type = checkpoint["model_type"]
+    time_window = checkpoint["time_window"]
 
     # Instantiate the model and load the encoder state dict
     model = model_class(model_params)
-    model.encoder.load_state_dict(checkpoint['encoder_state_dict'])
+    model.encoder.load_state_dict(checkpoint["encoder_state_dict"])
 
     # Define the encoder function based on the model type
     def enc(x):
