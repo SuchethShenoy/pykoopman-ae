@@ -1,9 +1,8 @@
 import torch
-from tqdm import tqdm
 
 from pykoopman_ae.default_params import *
 from pykoopman_ae.params_test import params_test
-from pykoopman_ae.system_extraction import get_koopman_system
+from pykoopman_ae.system_extraction import get_koopman_model
 from pykoopman_ae.training import Trainer
 
 
@@ -274,7 +273,7 @@ class MLP_AE(torch.nn.Module):
 
         return loss
 
-    def get_koopman_system(self):
+    def get_koopman_model(self):
         """
         Extracts the lifted system matrices K, B, and C from the trained MLP_AE model.
 
@@ -296,7 +295,7 @@ class MLP_AE(torch.nn.Module):
                                 a tensor with shape (batch_size, num_lifted_states).
         """
 
-        K, B, C, enc = get_koopman_system(self)
+        K, B, C, enc = get_koopman_model(self)
         return K, B, C, enc
 
 
@@ -609,7 +608,7 @@ class TCN_AE(torch.nn.Module):
 
         return loss
 
-    def get_koopman_system(self):
+    def get_koopman_model(self):
         """
         Extracts the lifted system matrices K, B, and C from the trained TCN_AE model.
 
@@ -631,7 +630,7 @@ class TCN_AE(torch.nn.Module):
                                 a tensor with shape (batch_size, num_lifted_states).
         """
 
-        K, B, C, enc = get_koopman_system(self)
+        K, B, C, enc = get_koopman_model(self)
         return K, B, C, enc
 
 
@@ -885,7 +884,7 @@ class LSTM_AE(torch.nn.Module):
 
         return loss
 
-    def get_koopman_system(self):
+    def get_koopman_model(self):
         """
         Extracts the lifted system matrices K, B, and C from the trained LSTM_AE model.
 
@@ -907,7 +906,7 @@ class LSTM_AE(torch.nn.Module):
                                 a tensor with shape (batch_size, num_lifted_states).
         """
 
-        K, B, C, enc = get_koopman_system(self)
+        K, B, C, enc = get_koopman_model(self)
         return K, B, C, enc
 
 
@@ -1161,7 +1160,7 @@ class GRU_AE(torch.nn.Module):
 
         return loss
 
-    def get_koopman_system(self):
+    def get_koopman_model(self):
         """
         Extracts the lifted system matrices K, B, and C from the trained GRU_AE model.
 
@@ -1183,5 +1182,5 @@ class GRU_AE(torch.nn.Module):
                                 a tensor with shape (batch_size, num_lifted_states).
         """
 
-        K, B, C, enc = get_koopman_system(self)
+        K, B, C, enc = get_koopman_model(self)
         return K, B, C, enc

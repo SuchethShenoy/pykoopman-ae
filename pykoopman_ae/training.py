@@ -1,7 +1,7 @@
 import torch
 from tqdm import tqdm
 
-from pykoopman_ae.system_extraction import get_koopman_system
+from pykoopman_ae.system_extraction import get_koopman_model
 from pykoopman_ae.dataset_generator import get_temporal_dataset
 
 
@@ -575,7 +575,7 @@ def train_nontemporal_b_block_with_control_input(trainer):
         torch.Tensor: A tensor containing the mean loss for each epoch.
     """
 
-    K, B, C, enc = get_koopman_system(trainer.model)
+    K, B, C, enc = get_koopman_model(trainer.model)
     K = K.to(device=trainer.device)
     B = B.to(device=trainer.device)
     C = C.to(device=trainer.device)
@@ -668,7 +668,7 @@ def train_temporal_b_block_with_control_input(trainer):
     Y = Y.to(trainer.device)
     U = U.to(trainer.device)
 
-    K, B, C, enc = get_koopman_system(trainer.model)
+    K, B, C, enc = get_koopman_model(trainer.model)
     K = K.to(device=trainer.device)
     B = B.to(device=trainer.device)
     C = C.to(device=trainer.device)

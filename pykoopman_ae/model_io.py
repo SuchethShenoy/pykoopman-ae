@@ -1,56 +1,9 @@
 import torch
 
-from pykoopman_ae.system_extraction import get_koopman_system
-
-import torch
+from pykoopman_ae.system_extraction import get_koopman_model
 
 
-def save_model_with_params(model, params, path):
-    """
-    Saves the model's state dictionary and the model parameters to a specified path.
-
-    Args:
-        model (torch.nn.Module): The model to be saved.
-        params (dict): The parameters dictionary used to initialize the model.
-        path (str): The file path to save the model and parameters.
-
-    Returns:
-        None
-    """
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "params": params,
-        },
-        path,
-    )
-    print("Model and parameters saved successfully at", path)
-
-
-def load_model_with_params(path, model_class):
-    """
-    Loads the model's state dictionary and parameters from a specified path and initializes
-    the model using the loaded parameters.
-
-    Args:
-        path (str): The file path to load the model and parameters from.
-        model_class (class): The class of the model to be instantiated.
-
-    Returns:
-        tuple: A tuple containing the following elements:
-            - model (torch.nn.Module): The model loaded with the state dictionary and parameters.
-            - params (dict): The parameters dictionary used to initialize the model.
-    """
-    checkpoint = torch.load(path)
-    params = checkpoint["params"]
-    model = model_class(params)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    model.eval()
-    print("Model and parameters loaded successfully from", path)
-    return model, params
-
-
-def save_koopman_system(model, params, path):
+def save_koopman_model(model, params, path):
     """
     Saves the Koopman system matrices (K, B, C) and the encoder parameters.
 
@@ -59,7 +12,7 @@ def save_koopman_system(model, params, path):
         path (str): The file path to save the Koopman system.
     """
     # Extract Koopman matrices and encoder function
-    K, B, C, enc = get_koopman_system(model)
+    K, B, C, enc = get_koopman_model(model)
 
     # Save the matrices and encoder state dict
     torch.save(
@@ -67,6 +20,7 @@ def save_koopman_system(model, params, path):
             "K": K,
             "B": B,
             "C": C,
+            "model_state_dict": model.state_dict(),
             "encoder_state_dict": model.encoder.state_dict(),
             "model_params": params,
             "model_type": model.model_type,
@@ -78,7 +32,7 @@ def save_koopman_system(model, params, path):
     print(f"Koopman system saved successfully at {path}")
 
 
-def load_koopman_system(path, model_class):
+def load_koopman_model(path, model_class):
     """
     Loads the Koopman system matrices (K, B, C) and the encoder parameters.
 
@@ -87,7 +41,7 @@ def load_koopman_system(path, model_class):
         model_class (class): The class of the model to instantiate.
 
     Returns:
-        tuple: A tuple containing the Koopman matrices (K, B, C) and the encoder function (enc).
+        tuple: A tuple containing the Koopman matrices (K, B, C), encoder function (enc) and the model.
     """
     # Load the checkpoint
     checkpoint = torch.load(path)
@@ -102,7 +56,7 @@ def load_koopman_system(path, model_class):
 
     # Instantiate the model and load the encoder state dict
     model = model_class(model_params)
-    model.encoder.load_state_dict(checkpoint["encoder_state_dict"])
+    model.load_state_dict(checkpoint["model_state_dict"])
 
     # Define the encoder function based on the model type
     def enc(x):
@@ -134,4 +88,4 @@ def load_koopman_system(path, model_class):
             return lifted_states
 
     print(f"Koopman system loaded successfully from {path}")
-    return K, B, C, enc
+    return K, B, C, enc, model

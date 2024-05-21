@@ -1,7 +1,7 @@
 import torch
 
 
-def get_koopman_system(model):
+def get_koopman_model(model):
     """
     Extracts the lifted system matrices K, B, and C from the trained MLP_AE model.
 
