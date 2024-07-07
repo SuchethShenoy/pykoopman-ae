@@ -375,10 +375,18 @@ class TCN_AE(torch.nn.Module):
         (tcn_layers)
         self.tcn = torch.nn.Sequential(*tcn_layers)
 
+        tcn_out = self.time_window
+        for k in self.tcn_kernels:
+            tcn_out = tcn_out - k + 1
+
+        assert (
+            tcn_out > 0
+        ), f"time_window: Kernel Sizes are large, increase time_window or reduce tcn_kernels."
+
         # Encoder Block
         encoder_layers = [
             torch.nn.Linear(
-                self.tcn_channels[-1] * self.tcn_kernels[-1],
+                self.tcn_channels[-1] * tcn_out,
                 self.encoder_layers[0],
                 bias=False,
             ),
