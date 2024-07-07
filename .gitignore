@@ -2,3 +2,10 @@
 __pycache__
 
 dev/
+build/
+dist/
+*.egg-info
+
+venv/
+datasets/
+models/

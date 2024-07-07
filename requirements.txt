@@ -1,2 +1,4 @@
-torch==1.12.1
+numpy==1.21.5
+setuptools==59.6.0
+torch==2.3.1
 tqdm==4.65.0
