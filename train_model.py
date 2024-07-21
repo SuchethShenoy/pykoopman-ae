@@ -62,7 +62,7 @@ if MODEL_TYPE == "GRU":
 
 model.to(device)
 
-DYNAMIC_LOSS_WINDOW = 10
+DYNAMIC_LOSS_WINDOW = 16
 MODEL_NAME_TAG = f"{DATASET}_{MODEL_TYPE}_{LIFTED_STATES}ls_{TIME_WINDOW}tw"
 MODEL_SAVE_DIR = f"models/{MODEL_NAME_TAG}"
 
@@ -74,8 +74,12 @@ optimizer = torch.optim.AdamW(model.parameters())
 losses = []
 for epoch in range(EPOCHS):
     print(f"Epoch: {epoch + 1}")
-    loss = model.learn_koopman_eigendynamics(
-        trajectory=trajectory, num_epochs=1, dynamic_loss_window=10, optimizer=optimizer
+    loss = model.learn_koopman_model(
+        trajectory=trajectory,
+        input=input,
+        num_epochs=1,
+        dynamic_loss_window=DYNAMIC_LOSS_WINDOW,
+        optimizer=optimizer,
     )
     losses.append(loss.item())
     path = os.path.join(MODEL_SAVE_DIR, f"{MODEL_NAME_TAG}_{epoch+1}ep.pth")
