@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pykoopman_ae',
-    version='0.1.3',
+    version='0.1.2',
     description='Python package PyKoopman-AE for the data-driven identification of the Koopman Operator-based models for dynamical systems using autoencoders.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
